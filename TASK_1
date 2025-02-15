@@ -1,0 +1,55 @@
+import http.client
+import json
+import tkinter as tk
+from tkinter import Canvas
+
+# API request using built-in http.client
+conn = http.client.HTTPSConnection("api.coingecko.com")
+conn.request("GET", "/api/v3/coins/bitcoin/market_chart?vs_currency=usd&days=7&interval=daily")
+response = conn.getresponse()
+
+if response.status != 200:
+    print("Error fetching data:", response.status)
+    exit()
+
+# Parse JSON data
+data = json.loads(response.read().decode())
+prices = data["prices"]
+
+# Extract dates and values
+dates = [price[0] for price in prices]  # Timestamps (in milliseconds)
+values = [price[1] for price in prices]  # Prices
+
+# Normalize values for visualization
+min_price = min(values)
+max_price = max(values)
+scaled_values = [(v - min_price) / (max_price - min_price) * 200 for v in values]  # Scale for canvas
+
+# Convert timestamps to human-readable format
+from datetime import datetime
+dates = [datetime.fromtimestamp(d / 1000).strftime('%d-%b') for d in dates]
+
+# Visualization using Tkinter
+root = tk.Tk()
+root.title("Bitcoin Price Trend")
+
+canvas = Canvas(root, width=400, height=250, bg="white")
+canvas.pack()
+
+# Draw axes
+canvas.create_line(50, 20, 50, 220, fill="black")  # Y-axis
+canvas.create_line(50, 220, 350, 220, fill="black")  # X-axis
+
+# Plot points and connect them with lines
+for i in range(len(dates) - 1):
+    x1, y1 = 50 + i * 40, 220 - scaled_values[i]
+    x2, y2 = 50 + (i + 1) * 40, 220 - scaled_values[i + 1]
+    canvas.create_oval(x1-3, y1-3, x1+3, y1+3, fill="blue")  # Data points
+    canvas.create_line(x1, y1, x2, y2, fill="blue")  # Connect points
+
+# Add labels
+for i in range(len(dates)):
+    x, y = 50 + i * 40, 230
+    canvas.create_text(x, y, text=dates[i], font=("Arial", 8), anchor="n")
+
+root.mainloop()
